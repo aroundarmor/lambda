@@ -1,4 +1,4 @@
-name: Trigger all lambda deployment
+name: Lambda Deployment
 on:
   workflow_dispatch:
     inputs:
