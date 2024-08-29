@@ -103,11 +103,11 @@ jobs:
         if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
 
       - name: Upload the zip file to S3 bucket
-        run: aws s3 cp ./${{ env.FUNCTION_PACKAGE_NAME }} s3://dev-lambda-packages/${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
+        run: aws s3 cp ./${{ env.FUNCTION_PACKAGE_NAME }} s3://dev-lambda-packages-${{ github.event.inputs.aws-account-id }}/${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
         working-directory: ${{ matrix.lambda.directory }}
         if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
 
       - name: deploy lambda function
-        run: aws lambda update-function-code --function-name ${{ matrix.lambda.name }} --s3-bucket dev-lambda-packages --s3-key ${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
+        run: aws lambda update-function-code --function-name ${{ matrix.lambda.name }} --s3-bucket dev-lambda-packages-${{ github.event.inputs.aws-account-id }} --s3-key ${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
         working-directory: ${{ matrix.lambda.directory }}
         if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
