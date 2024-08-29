@@ -15,7 +15,7 @@ module "lambda_function" {
     LOG_LEVEL = "DEBUG"
   }
 
-  create_role     = true
-  role_name       = "dev-my-name-lambda-role"
-  attach_policies = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"] # Basic execution policy
+  # create_role     = true
+  # role_name       = "dev-my-name-lambda-role"
+  # attach_policies = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"] # Basic execution policy
 }
