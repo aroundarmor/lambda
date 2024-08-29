@@ -1,14 +1,16 @@
 name: Trigger all lambda deployment
 on:
-  push:
-     branches:
-       - main
+  workflow_dispatch:
+    inputs:
+      aws-account-id:
+        description: 'AWS Account ID'
+        required: true
 defaults:
   run:
     shell: bash
 env:
   AWS_REGION: ap-southeast-1
-  ROLE_ARN: arn:aws:iam::813851449001:role/lambda-githubaction-iamrole
+  ROLE_ARN: arn:aws:iam::${{ github.event.inputs.aws-account-id }}:role/lambda-githubaction-iamrole
   FUNCTION_PACKAGE_NAME: lambda-package.zip
   MODULE: common-module
 permissions:
