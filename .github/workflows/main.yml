@@ -17,36 +17,36 @@ permissions:
   id-token: write
   contents: read
 jobs:
-  check_changes: 
-    runs-on: ubuntu-latest
-    outputs:
-      involve-module: ${{ steps.set-involve-module.outputs.involve-module }}
-      changes: ${{ steps.set-changes.outputs.changes }}
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
+  # check_changes: 
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     involve-module: ${{ steps.set-involve-module.outputs.involve-module }}
+  #     changes: ${{ steps.set-changes.outputs.changes }}
+  #   steps:
+  #     - name: checkout repository
+  #       uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 2
 
-      - id: get-changes
-        name: get changes     
-        run: echo "CHANGES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | jq --raw-input . | jq --slurp . | jq -c)" >> $GITHUB_ENV
+  #     - id: get-changes
+  #       name: get changes     
+  #       run: echo "CHANGES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | jq --raw-input . | jq --slurp . | jq -c)" >> $GITHUB_ENV
 
-      - id: set-changes
-        name: set value
-        run: echo ::set-output name=changes::${CHANGES}
+  #     - id: set-changes
+  #       name: set value
+  #       run: echo ::set-output name=changes::${CHANGES}
 
-      - id: check-module-involvement
-        name: check module involvement    
-        run: echo "INVOLVE_MODULE=$(echo '${{ env.CHANGES }}' | grep -q ${{ env.MODULE }};echo $?)" >> $GITHUB_ENV
+  #     - id: check-module-involvement
+  #       name: check module involvement    
+  #       run: echo "INVOLVE_MODULE=$(echo '${{ env.CHANGES }}' | grep -q ${{ env.MODULE }};echo $?)" >> $GITHUB_ENV
              
-      - id: set-involve-module
-        name: set value
-        run: echo ::set-output name=involve-module::${INVOLVE_MODULE}
+  #     - id: set-involve-module
+  #       name: set value
+  #       run: echo ::set-output name=involve-module::${INVOLVE_MODULE}
 
   
   deploy:
-    needs: check_changes
+    # needs: check_changes
     runs-on: ubuntu-latest
     strategy:
        matrix:
@@ -57,9 +57,9 @@ jobs:
          python-version:
            - 3.9
     steps:
-      - name: check if there are changes in the directory
-        run: echo "CHANGES=$(echo '${{ needs.check_changes.outputs.changes }}' | grep -q ${{ matrix.lambda.directory }};echo $?)" >> $GITHUB_ENV
-        if: ${{  fromJSON(needs.check_changes.outputs.involve-module) != '0' }}
+      # - name: check if there are changes in the directory
+      #   run: echo "CHANGES=$(echo '${{ needs.check_changes.outputs.changes }}' | grep -q ${{ matrix.lambda.directory }};echo $?)" >> $GITHUB_ENV
+      #   if: ${{  fromJSON(needs.check_changes.outputs.involve-module) != '0' }}
 
       #The rest only run if there are changes detected
       - name: checkout repository
