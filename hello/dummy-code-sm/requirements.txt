@@ -1,0 +1,12 @@
+# requirements.txt
+
+# Since we are not using any external packages, this can be kept empty 
+# or you can add potential packages you might need in the future
+
+# Example:
+# requests==2.25.1
+# boto3==1.17.77
+
+# For testing purposes:
+# pytest==6.2.4
+# mock==4.0.3
