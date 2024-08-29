@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create a GitHub OIDC provider, an IAM role with AdministratorAccess, and an S3 bucket
+
+Parameters:
+  AccountId:
+    Type: String
+    Description: AWS Account ID for naming the S3 bucket
+  GitHubOrganization:
+    Type: String
+    Description: GitHub organization name
+  GitHubRepository:
+    Type: String
+    Description: GitHub repository name
+
+Resources:
+  # GitHub OIDC Provider
+  GitHubOIDCProvider:
+    Type: 'AWS::IAM::OIDCProvider'
+    Properties: 
+      Url: 'https://token.actions.githubusercontent.com'
+      ClientIdList:
+        - 'sts.amazonaws.com'
+      ThumbprintList: 
+        - '6938fd4d98bab03faadb97b34396831e3780aea1'
+
+  # IAM Role for GitHub Actions to assume
+  LambdaGithubActionIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'lambda-githubaction-iamrole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Federated: !Ref 'GitHubOIDCProvider'
+            Action:
+              - 'sts:AssumeRoleWithWebIdentity'
+            Condition:
+              StringLike:
+                'token.actions.githubusercontent.com:sub': !Sub 'repo:${GitHubOrganization}/${GitHubRepository}:*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  # S3 bucket for lambda packages
+  LambdaS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'dev-lambda-packages-${AccountId}'
+      
+  # Bucket Policy to allow GitHub Action role access
+  LambdaS3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref LambdaS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              AWS: !GetAtt LambdaGithubActionIAMRole.Arn
+            Action:
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+            Resource:
+              - !Sub 'arn:aws:s3:::${LambdaS3Bucket}'
+              - !Sub 'arn:aws:s3:::${LambdaS3Bucket}/*'
+
+Outputs:
+  LambdaGithubActionIAMRoleArn:
+    Description: 'ARN of the IAM Role for GitHub Actions'
+    Value: !GetAtt LambdaGithubActionIAMRole.Arn
+
+  LambdaS3BucketName:
+    Description: 'Name of the S3 bucket for Lambda packages'
+    Value: !Ref LambdaS3Bucket
