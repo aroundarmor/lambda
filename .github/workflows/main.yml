@@ -1,0 +1,111 @@
+name: Trigger all lambda deployment
+on:
+  push:
+     branches:
+       - main
+defaults:
+  run:
+    shell: bash
+env:
+  AWS_REGION: ap-southeast-1
+  ROLE_ARN: arn:aws:iam::813851449001:role/lambda-githubaction-iamrole
+  FUNCTION_PACKAGE_NAME: lambda-package.zip
+  MODULE: common-module
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  check_changes: 
+    runs-on: ubuntu-latest
+    outputs:
+      involve-module: ${{ steps.set-involve-module.outputs.involve-module }}
+      changes: ${{ steps.set-changes.outputs.changes }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - id: get-changes
+        name: get changes     
+        run: echo "CHANGES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | jq --raw-input . | jq --slurp . | jq -c)" >> $GITHUB_ENV
+
+      - id: set-changes
+        name: set value
+        run: echo ::set-output name=changes::${CHANGES}
+
+      - id: check-module-involvement
+        name: check module involvement    
+        run: echo "INVOLVE_MODULE=$(echo '${{ env.CHANGES }}' | grep -q ${{ env.MODULE }};echo $?)" >> $GITHUB_ENV
+             
+      - id: set-involve-module
+        name: set value
+        run: echo ::set-output name=involve-module::${INVOLVE_MODULE}
+
+  
+  deploy:
+    needs: check_changes
+    runs-on: ubuntu-latest
+    strategy:
+       matrix:
+         # Change me here
+         lambda: 
+           - directory: hello/dummy-code
+             name: dev-my-name
+         python-version:
+           - 3.9
+    steps:
+      - name: check if there are changes in the directory
+        run: echo "CHANGES=$(echo '${{ needs.check_changes.outputs.changes }}' | grep -q ${{ matrix.lambda.directory }};echo $?)" >> $GITHUB_ENV
+        if: ${{  fromJSON(needs.check_changes.outputs.involve-module) != '0' }}
+
+      #The rest only run if there are changes detected
+      - name: checkout repository
+        uses: actions/checkout@v2
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@master
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: Copy common modules into directory
+        run: |
+           cp ${{ env.MODULE }}/* ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: Install depedencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt -t .; fi
+        working-directory: ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: zip the code
+        run: |
+          zip -r ./${{ env.FUNCTION_PACKAGE_NAME }} . -x ./requirements.txt
+        working-directory: ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: print zip file name
+        run: echo "./${{ env.FUNCTION_PACKAGE_NAME }}"
+        working-directory: ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: Upload the zip file to S3 bucket
+        run: aws s3 cp ./${{ env.FUNCTION_PACKAGE_NAME }} s3://dev-lambda-packages/${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
+        working-directory: ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
+
+      - name: deploy lambda function
+        run: aws lambda update-function-code --function-name ${{ matrix.lambda.name }} --s3-bucket dev-lambda-packages --s3-key ${{ matrix.lambda.name }}--${{ env.FUNCTION_PACKAGE_NAME }}
+        working-directory: ${{ matrix.lambda.directory }}
+        if: ${{ env.CHANGES == '0' ||  fromJSON(needs.check_changes.outputs.involve-module) == '0' }}
